@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1"/>
+    <title>Worker Message Performance</title>
+    <style>
+        #web-worker-result::after,
+        #service-worker-result::after {
+            content: "ms in average"
+        }
+    </style>
+    <script>
+        var webWorker = new Worker("./webWorker.js");
+        var remainingWebWorkerPings;
+        var remainingServiceWorkerPings;
+
+        function startWebWorkerPing() {
+            remainingWebWorkerPings = 100000;
+            pingWebWorker();
+        }
+
+        function pingWebWorker() {
+            performance.mark("web worker start");
+            webWorker.postMessage("ping");
+        }
+
+        function onWebWorkerMessage() {
+            performance.mark("web worker end");
+            performance.measure("web worker message", "web worker start", "web worker end");
+            document.getElementById("web-worker-remaining-pings").textContent = remainingWebWorkerPings;
+            if (remainingWebWorkerPings > 0) {
+                remainingWebWorkerPings--;
+                pingWebWorker();
+            } else {
+                postResults(document.getElementById("web-worker-result"), performance.getEntriesByName("web worker message"));
+            }
+        }
+
+        function startServiceWorkerPing() {
+            remainingServiceWorkerPings = 100000;
+            pingServiceWorker();
+        }
+
+        function pingServiceWorker() {
+            var messageChannel = new MessageChannel();
+
+            messageChannel.port1.onmessage = onServiceWorkerMessage;
+            performance.mark("service worker start");
+            navigator.serviceWorker.controller.postMessage("ping", [messageChannel.port2]);
+        }
+
+        function onServiceWorkerMessage() {
+            performance.mark("service worker end");
+            performance.measure("service worker message", "service worker start", "service worker end");
+            document.getElementById("service-worker-remaining-pings").textContent = remainingServiceWorkerPings;
+            if (remainingServiceWorkerPings > 0) {
+                remainingServiceWorkerPings--;
+                pingServiceWorker();
+            } else {
+                postResults(document.getElementById("service-worker-result"), performance.getEntriesByName("service worker message"));
+            }
+        }
+
+        function postResults(container, measurements) {
+            container.textContent = measurements.reduce(function (allDurations, entry) {
+                return allDurations + entry.duration;
+            }, 0) / measurements.length;
+        }
+
+        webWorker.addEventListener("message", onWebWorkerMessage);
+        navigator.serviceWorker.register("./serviceWorker.js")
+            .then(function () {
+                document.getElementById("service-worker-btn").removeAttribute("disabled");
+            })
+            .catch(function () {
+                console.error("service worker error");
+            });
+    </script>
+</head>
+<body>
+    <div>
+        <h2>Web Worker</h2>
+        <input type="button" onclick="startWebWorkerPing()" value="Test">
+        <h3>Remaining pings</h3>
+        <div id="web-worker-remaining-pings"></div>
+        <h3>Result</h3>
+        <div id="web-worker-result">n/a </div>
+    </div>
+    <div>
+        <h2>Service Worker</h2>
+        <input id="service-worker-btn" type="button" onclick="startServiceWorkerPing()" value="Test" disabled>
+        <h3>Remaining pings</h3>
+        <div id="service-worker-remaining-pings"></div>
+        <h3>Result</h3>
+        <div id="service-worker-result">n/a </div>
+    </div>
+</body>
+</html>
