@@ -13,6 +13,7 @@
     <script>
         const webWorker = new Worker("./webWorker.js");
         let sendPayload = false;
+        let runAll = false;
         let remainingWebWorkerPings;
         let remainingServiceWorkerPings;
         let payload;
@@ -39,7 +40,7 @@
             } else {
                 postResults(document.getElementById("web-worker-result"), performance.getEntriesByName("web worker message"));
                 performance.clearMeasures("web worker message");
-                if (document.getElementById("all-checkbox").checked && remainingServiceWorkerPings === undefined) {
+                if (runAll && remainingServiceWorkerPings === undefined) {
                     startServiceWorkerPing();
                 }
                 reset();
@@ -70,7 +71,7 @@
             } else {
                 postResults(document.getElementById("service-worker-result"), performance.getEntriesByName("service worker message"));
                 performance.clearMeasures("service worker message");
-                if (document.getElementById("all-checkbox").checked && remainingWebWorkerPings === undefined) {
+                if (runAll && remainingWebWorkerPings === undefined) {
                     startWebWorkerPing();
                 }
                 reset();
@@ -87,6 +88,7 @@
             if (remainingServiceWorkerPings === 0 && remainingWebWorkerPings === 0) {
                 remainingServiceWorkerPings = undefined;
                 remainingWebWorkerPings = undefined;
+                runAll = false;
             }
         }
 
@@ -105,7 +107,6 @@
         <h2>Settings</h2>
         Iterations: <input id="iterations-input" type="text" value="100000"><br>
         Send payload: <input id="payload-checkbox" type="checkbox"><br>
-        Run all tests in sequence: <input id="all-checkbox" type="checkbox">
     </div>
     <div>
         <h2>Web Worker</h2>
@@ -123,5 +124,6 @@
         <h3>Result</h3>
         <div id="service-worker-result">n/a </div>
     </div>
+    <input type="button" onclick="runAll = true; startWebWorkerPing()" value="Test both">
 </body>
 </html>
