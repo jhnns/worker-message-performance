@@ -11,18 +11,22 @@
         }
     </style>
     <script>
-        var webWorker = new Worker("./webWorker.js");
-        var remainingWebWorkerPings;
-        var remainingServiceWorkerPings;
+        const webWorker = new Worker("./webWorker.js");
+        let sendPayload = false;
+        let remainingWebWorkerPings;
+        let remainingServiceWorkerPings;
+        let payload;
 
         function startWebWorkerPing() {
-            remainingWebWorkerPings = 100000;
+            sendPayload = document.getElementById("payload-checkbox").checked;
+            payload =  document.getElementById("payload-checkbox").checked ? document.documentElement.outerHTML : "ping";
+            remainingWebWorkerPings = parseInt(document.getElementById("iterations-input").value);
             pingWebWorker();
         }
 
         function pingWebWorker() {
             performance.mark("web worker start");
-            webWorker.postMessage("ping");
+            webWorker.postMessage(payload);
         }
 
         function onWebWorkerMessage() {
@@ -34,11 +38,17 @@
                 pingWebWorker();
             } else {
                 postResults(document.getElementById("web-worker-result"), performance.getEntriesByName("web worker message"));
+                performance.clearMeasures("web worker message");
+                if (document.getElementById("all-checkbox").checked && remainingServiceWorkerPings === undefined) {
+                    startServiceWorkerPing();
+                }
+                reset();
             }
         }
 
         function startServiceWorkerPing() {
-            remainingServiceWorkerPings = 100000;
+            payload =  document.getElementById("payload-checkbox").checked ? document.documentElement.outerHTML : "ping";
+            remainingServiceWorkerPings = parseInt(document.getElementById("iterations-input").value);
             pingServiceWorker();
         }
 
@@ -47,7 +57,7 @@
 
             messageChannel.port1.onmessage = onServiceWorkerMessage;
             performance.mark("service worker start");
-            navigator.serviceWorker.controller.postMessage("ping", [messageChannel.port2]);
+            navigator.serviceWorker.controller.postMessage(payload, [messageChannel.port2]);
         }
 
         function onServiceWorkerMessage() {
@@ -59,6 +69,11 @@
                 pingServiceWorker();
             } else {
                 postResults(document.getElementById("service-worker-result"), performance.getEntriesByName("service worker message"));
+                performance.clearMeasures("service worker message");
+                if (document.getElementById("all-checkbox").checked && remainingWebWorkerPings === undefined) {
+                    startWebWorkerPing();
+                }
+                reset();
             }
         }
 
@@ -66,6 +81,13 @@
             container.textContent = measurements.reduce(function (allDurations, entry) {
                 return allDurations + entry.duration;
             }, 0) / measurements.length;
+        }
+
+        function reset() {
+            if (remainingServiceWorkerPings === 0 && remainingWebWorkerPings === 0) {
+                remainingServiceWorkerPings = undefined;
+                remainingWebWorkerPings = undefined;
+            }
         }
 
         webWorker.addEventListener("message", onWebWorkerMessage);
@@ -79,6 +101,12 @@
     </script>
 </head>
 <body>
+    <div>
+        <h2>Settings</h2>
+        Iterations: <input id="iterations-input" type="text" value="100000"><br>
+        Send payload: <input id="payload-checkbox" type="checkbox"><br>
+        Run all tests in sequence: <input id="all-checkbox" type="checkbox">
+    </div>
     <div>
         <h2>Web Worker</h2>
         <input type="button" onclick="startWebWorkerPing()" value="Test">

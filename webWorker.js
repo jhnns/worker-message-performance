@@ -1,5 +1,5 @@
 "use strict";
 
-onmessage = function() {
-    postMessage("pong");
+onmessage = function (event) {
+    postMessage(event.data);
 };
